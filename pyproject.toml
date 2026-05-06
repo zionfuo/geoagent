@@ -1,5 +1,5 @@
 [project]
-name = "geoagent"
+name = "py-geoagent"
 version = "0.1.0"
 description = "GEO-optimized article transformation CLI"
 requires-python = ">=3.10"
