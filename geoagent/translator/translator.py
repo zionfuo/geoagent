@@ -1,7 +1,7 @@
 # geoagent/translator/translator.py
 """Translation logic for multi-language support."""
 from geoagent.models.client import ModelClient
-from geoagent.models.document import MarkdownDocument, DocContext
+from geoagent.models.document import MarkdownDocument
 
 
 LANGUAGE_DISPLAY = {
@@ -42,7 +42,7 @@ class Translator:
     def get_language_display(self, code: str) -> str:
         return LANGUAGE_DISPLAY.get(code, code)
 
-    def translate(self, doc: MarkdownDocument, target_lang: str, context: DocContext = None) -> MarkdownDocument:
+    def translate(self, doc: MarkdownDocument, target_lang: str) -> MarkdownDocument:
         """Translate document to target language."""
         target_display = self.get_language_display(target_lang)
 

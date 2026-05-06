@@ -2,34 +2,13 @@
 """Main pipeline orchestrator for document transformation."""
 import os
 import re
-import json
-import logging
 from pathlib import Path
-from typing import Optional
 
 from geoagent.models.client import ModelClient
-from geoagent.models.document import MarkdownDocument, DocContext
+from geoagent.models.document import MarkdownDocument
 from geoagent.geo.rules import GEORules
 from geoagent.geo.optimizer import GEOOptimizer
 from geoagent.translator.translator import Translator
-
-logger = logging.getLogger(__name__)
-
-UNDERSTAND_PROMPT = """Analyze this document and return a JSON object with the following structure:
-
-{{
-    "themes": ["theme1", "theme2"],
-    "terminology": {{"term1": "definition1", "term2": "definition2"}},
-    "structure": ["section1", "section2", "section3"],
-    "summary": "Brief summary of the document content"
-}}
-
-Document:
----
-{content}
----
-
-Respond ONLY with the JSON object, no additional text."""
 
 
 class Pipeline:
@@ -73,36 +52,6 @@ class Pipeline:
             }
         )
 
-    def understand(self, doc: MarkdownDocument) -> DocContext:
-        """Analyze document to extract context."""
-        messages = [
-            {"role": "user", "content": UNDERSTAND_PROMPT.format(content=doc.content)}
-        ]
-
-        result = self.model_client.complete(
-            model=self.default_model,
-            messages=messages,
-            max_tokens=self.max_tokens_understand,
-            include_thinking=False
-        )
-
-        try:
-            data = json.loads(result)
-            return DocContext(
-                title=doc.title,
-                themes=data.get("themes", []),
-                terminology=data.get("terminology", {}),
-                structure={"sections": data.get("structure", [])},
-                summary=data.get("summary", "")
-            )
-        except json.JSONDecodeError as e:
-            logger.warning(f"Failed to parse understand response as JSON: {e}. Using raw result.")
-            return DocContext(
-                title=doc.title,
-                themes=[],
-                summary=result[:500] if len(result) > 500 else result
-            )
-
     def transform(
         self,
         input_path: str,
@@ -115,14 +64,15 @@ class Pipeline:
         base_name = input_file.stem
 
         doc = self.read_input(input_path)
-        context = self.understand(doc)
 
         output_files = []
 
         for lang in target_languages:
-            translated = self.translator.translate(doc, lang, context)
+            translated = self.translator.translate(doc, lang)
             translated_geo = self.optimizer.optimize(
-                translated, context, self.model_client, self.default_model, self.max_tokens_geo
+                translated, self.model_client, self.default_model,
+                max_tokens=self.max_tokens_geo,
+                max_tokens_understand=self.max_tokens_understand
             )
             translated_geo_path = os.path.join(output_dir, f"{base_name}.{lang}.geo.md")
             Path(translated_geo_path).write_text(str(translated_geo), encoding='utf-8')
