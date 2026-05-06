@@ -5,8 +5,16 @@ CLI tool that transforms Chinese markdown articles into GEO-optimized versions w
 ## Installation
 
 ```bash
+pip install py-geoagent
+```
+
+Or install from source:
+
+```bash
 pip install -e .
 ```
+
+**PyPI:** https://pypi.org/project/py-geoagent/
 
 ## Quick Start
 
