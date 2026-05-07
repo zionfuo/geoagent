@@ -56,7 +56,8 @@ class Pipeline:
         self,
         input_path: str,
         output_dir: str,
-        target_languages: list[str]
+        target_languages: list[str],
+        resume: bool = False
     ) -> list[str]:
         """Run full transformation pipeline."""
         os.makedirs(output_dir, exist_ok=True)
@@ -68,13 +69,20 @@ class Pipeline:
         output_files = []
 
         for lang in target_languages:
+            translated_geo_path = os.path.join(output_dir, f"{base_name}.{lang}.geo.md")
+
+            # Resume check: skip if output file already exists
+            if resume and os.path.exists(translated_geo_path):
+                logger.info(f"Skipping {lang} - output file already exists: {translated_geo_path}")
+                output_files.append(translated_geo_path)
+                continue
+
             translated = self.translator.translate(doc, lang)
             translated_geo = self.optimizer.optimize(
                 translated, self.model_client, self.default_model,
                 max_tokens=self.max_tokens_geo,
                 max_tokens_understand=self.max_tokens_understand
             )
-            translated_geo_path = os.path.join(output_dir, f"{base_name}.{lang}.geo.md")
             Path(translated_geo_path).write_text(str(translated_geo), encoding='utf-8')
             output_files.append(translated_geo_path)
 

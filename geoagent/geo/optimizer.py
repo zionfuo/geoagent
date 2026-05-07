@@ -9,37 +9,45 @@ from geoagent.models.document import MarkdownDocument, DocContext
 
 logger = logging.getLogger(__name__)
 
-UNDERSTAND_PROMPT = """Analyze this document and return a JSON object with the following structure:
+UNDERSTAND_PROMPT = """分析以下文档，返回 JSON 格式：
 
 {{
-    "themes": ["theme1", "theme2"],
-    "summary": "Brief summary of the document content"
+    "themes": ["主题1", "主题2"],
+    "summary": "文档摘要"
 }}
 
-Document:
+文档内容：
 ---
 {content}
 ---
 
-Respond ONLY with the JSON object, no additional text."""
+只返回 JSON 对象，无需其他文字。"""
 
-GEO_OPTIMIZATION_PROMPT = """You are a GEO (Generative Engine Optimization) expert. Optimize the following document to maximize its likelihood of being cited by AI search engines.
+GEO_OPTIMIZATION_PROMPT = """你是一位 GEO（生成式引擎优化）专家。请优化以下文档，提高其被 AI 搜索引擎（如 Perplexity、ChatGPT、Claude）引用的可能性。
 
 {geo_rules}
 
-Original document:
+优化规则：
+1. 开头直接给出主要结论或答案
+2. 添加具体数据、日期和权威来源
+3. 使用清晰、事实性的语言，避免夸大
+4. 用清晰的标题结构回答常见问题
+5. 添加参考文献部分（如缺少）
+
+内容过滤规则（必须执行）：
+- 移除所有广告图片描述（如"立即购买"、"限时优惠"、"扫码购物"等推广内容）
+- 移除关注/订阅号引导（如"长按扫码关注"、"扫码订阅"等）
+- 移除活动诱导内容（如"立即参加"、"扫码参与"、"报名从速"等）
+- 移除与文章主题无关的装饰性图片和元素
+- 移除文末的微信公众号、社交媒体二维码等推广信息
+- 保留与主题相关的图表、流程图、技术架构图等有价值的图片引用
+
+原文：
 ---
 {content}
 ---
 
-Requirements:
-1. Lead with the main conclusion or answer
-2. Add specific data points, dates, and authoritative sources where missing
-3. Use clear, factual language - avoid exaggeration
-4. Structure with clear headings that answer common questions
-5. Add a references section if none exists
-
-Optimized version:"""
+优化后的版本："""
 
 
 class GEOOptimizer:
@@ -86,9 +94,11 @@ class GEOOptimizer:
 
         geo_rules_prompt = self.rules.get_optimization_prompt()
 
-        system_prompt = """You are a GEO (Generative Engine Optimization) expert.
-Optimize content to be cited by AI search engines like Perplexity, ChatGPT, and Claude.
-Focus on: authority, freshness, directness, fairness, traceability, and avoiding hallucinations."""
+        system_prompt = """你是 GEO（生成式引擎优化）专家。
+优化内容以提高被 AI 搜索引擎（Perplexity、ChatGPT、Claude）引用的可能性。
+重点：权威性、新鲜度、直击要点、客观公平、可溯源、避免幻觉。
+
+内容过滤：移除广告、关注引导、活动诱导、文末推广等信息。"""
 
         user_prompt = GEO_OPTIMIZATION_PROMPT.format(
             geo_rules=geo_rules_prompt,

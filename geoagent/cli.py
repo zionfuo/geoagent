@@ -26,7 +26,7 @@ def process_single_file(args, verbose=False):
     md_file, pipeline, output_dir, target_languages = args
 
     try:
-        output_files = pipeline.transform(str(md_file), output_dir, target_languages)
+        output_files = pipeline.transform(str(md_file), output_dir, target_languages, resume)
         return (True, md_file.name, len(output_files), None)
     except Exception as e:
         return (False, md_file.name, 0, str(e))
@@ -41,7 +41,8 @@ def process_single_file(args, verbose=False):
 @click.option('--verbose', is_flag=True, help='Show detailed logs')
 @click.option('--recursive', '-r', is_flag=True, help='Process directories recursively')
 @click.option('--concurrency', '-c', default=4, help='Number of concurrent threads (default: 4)')
-def transform(input_path, model, output_dir, geo_rules, lang, verbose, recursive, concurrency):
+@click.option('--resume', is_flag=True, help='Resume interrupted job - skip completed language outputs')
+def transform(input_path, model, output_dir, geo_rules, lang, verbose, recursive, concurrency, resume):
     """Transform a markdown article or directory of articles into GEO-optimized versions."""
     config = load_config()
 
@@ -117,7 +118,7 @@ def transform(input_path, model, output_dir, geo_rules, lang, verbose, recursive
             click.echo(f"Output directory: {output_dir}")
 
         try:
-            output_files = pipeline.transform(input_path, output_dir, target_languages)
+            output_files = pipeline.transform(input_path, output_dir, target_languages, resume)
             click.echo(f"\nGenerated {len(output_files)} files:")
             for f in output_files:
                 click.echo(f"  - {f}")
