@@ -80,8 +80,7 @@ class Pipeline:
             translated = self.translator.translate(doc, lang)
             translated_geo = self.optimizer.optimize(
                 translated, self.model_client, self.default_model,
-                max_tokens=self.max_tokens_geo,
-                max_tokens_understand=self.max_tokens_understand
+                max_tokens=self.max_tokens_geo
             )
             Path(translated_geo_path).write_text(str(translated_geo), encoding='utf-8')
             output_files.append(translated_geo_path)
