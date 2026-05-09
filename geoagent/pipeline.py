@@ -3,6 +3,7 @@
 import os
 import re
 from pathlib import Path
+from typing import Optional
 
 from geoagent.models.client import ModelClient
 from geoagent.models.document import MarkdownDocument
@@ -22,7 +23,10 @@ class Pipeline:
         default_model: str,
         max_tokens_translate: int = 8192,
         max_tokens_geo: int = 8192,
-        max_tokens_understand: int = 2048
+        max_tokens_understand: int = 2048,
+        geo_prompt_template: Optional[str] = None,
+        db_path: Optional[str] = None,
+        template_type: str = "trust"
     ):
         self.client = model_client
         self.model_client = model_client
@@ -33,11 +37,16 @@ class Pipeline:
         self.max_tokens_geo = max_tokens_geo
         self.max_tokens_understand = max_tokens_understand
         self.translator = Translator(translation_client, default_model, max_tokens_translate)
-        self.optimizer = GEOOptimizer(geo_rules)
+        self.optimizer = GEOOptimizer(geo_rules, prompt_template_name=geo_prompt_template, db_path=db_path, template_type=template_type)
+        self._db_path = db_path
+        self._template_type = template_type
 
     def read_input(self, path: str) -> MarkdownDocument:
         """Read and parse input markdown file."""
         content = Path(path).read_text(encoding='utf-8')
+
+        # Strip WeChat HTML export garbage
+        content = self._strip_wechat_garbage(content)
 
         title = self._extract_title(content)
         body = self._strip_title(content)
@@ -73,14 +82,16 @@ class Pipeline:
 
             # Resume check: skip if output file already exists
             if resume and os.path.exists(translated_geo_path):
-                logger.info(f"Skipping {lang} - output file already exists: {translated_geo_path}")
+                from logging import getLogger
+                getLogger(__name__).info(f"Skipping {lang} - output file already exists: {translated_geo_path}")
                 output_files.append(translated_geo_path)
                 continue
 
             translated = self.translator.translate(doc, lang)
             translated_geo = self.optimizer.optimize(
                 translated, self.model_client, self.default_model,
-                max_tokens=self.max_tokens_geo
+                max_tokens=self.max_tokens_geo,
+                lang=lang
             )
             Path(translated_geo_path).write_text(str(translated_geo), encoding='utf-8')
             output_files.append(translated_geo_path)
@@ -92,6 +103,55 @@ class Pipeline:
         if match:
             return match.group(1).strip()
         return "Untitled"
+
+    def _strip_wechat_garbage(self, content: str) -> str:
+        """Strip WeChat HTML export garbage and convert title format."""
+        lines = content.split('\n')
+        cleaned_lines = []
+        found_content = False
+        i = 0
+
+        while i < len(lines):
+            line = lines[i]
+            stripped = line.strip()
+
+            # Check for title with underline pattern: "Title\n========"
+            if not found_content and i + 1 < len(lines):
+                next_line = lines[i + 1].strip()
+                if (next_line and all(c == '=' for c in next_line) and
+                    not stripped.startswith('# ') and
+                    len(stripped) > 5 and
+                    not stripped.startswith('{') and
+                    not stripped.startswith('}') and
+                    not stripped.startswith('.__') and
+                    not 'margin:' in stripped and
+                    not 'font-family:' in stripped and
+                    not 'padding:' in stripped):
+                    # This is a title line with underline - convert to markdown heading
+                    found_content = True
+                    cleaned_lines.append('# ' + stripped)
+                    i += 2  # Skip the title line and the underline
+                    continue
+
+            if not found_content:
+                if stripped.startswith('# ') or stripped.startswith('## ') or stripped.startswith('---'):
+                    found_content = True
+                    cleaned_lines.append(line)
+                elif (len(stripped) > 10 and
+                      not stripped.startswith('{') and
+                      not stripped.startswith('}') and
+                      not stripped.startswith('.__') and
+                      not 'margin:' in stripped and
+                      not 'font-family:' in stripped and
+                      not 'padding:' in stripped):
+                    found_content = True
+                    cleaned_lines.append(line)
+            else:
+                cleaned_lines.append(line)
+
+            i += 1
+
+        return '\n'.join(cleaned_lines)
 
     def _strip_title(self, content: str) -> str:
         return re.sub(r'^#\s+.+\n+', '', content, count=1)

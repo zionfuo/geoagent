@@ -36,6 +36,16 @@ geoagent transform article.md \
   --verbose
 ```
 
+## GEO Template Types
+
+GeoAgent supports two article generation styles, each with templates in all 9 supported languages:
+
+### Trust-Based (default)
+Long-form articles with E-E-A-T signals, structured sections (Key Takeaways, Intro, 3-5 Main Sections, FAQ, Conclusion).
+
+### Ranking-Style
+Comparison/ranking articles with TOP1 rankings, strengths+limitations, comparison tables, scenario recommendations.
+
 ## Batch Processing
 
 ```bash
@@ -61,9 +71,62 @@ geoagent transform cdcc -r --lang zh-TW
 | `--output-dir` | `./output` | Output directory |
 | `--lang` | `en` | Target languages (comma-separated) |
 | `--geo-rules` | (built-in) | Custom GEO rules file |
+| `--geo-prompt` | (auto) | Specific GEO template name |
+| `--template-type` | `trust` | Template style: `trust` or `ranking` |
 | `--verbose` | false | Show detailed logs |
 | `-r, --recursive` | false | Process directories recursively |
 | `-c, --concurrency` | 4 | Number of concurrent threads |
+| `--resume` | false | Skip completed language outputs |
+
+## GEO Prompt Templates
+
+Each language auto-selects the correct template. Use `geoagent prompts list` to see all available templates.
+
+```bash
+# Initialize database and seed all 20 prompt templates
+geoagent init-db
+
+# List all templates
+geoagent prompts list
+
+# Show a specific template
+geoagent prompts show "GEO Marketing · Trust-Based Article Generation (Japanese)"
+
+# Render a template with variables
+geoagent prompts render "GEO Marketing · Trust-Based Article Generation (English)" \
+  --var title="How to Choose a Laptop" \
+  --var keyword="laptop buying guide"
+```
+
+### Auto Language Matching
+
+When running `transform`, GeoAgent automatically selects the template matching the target language:
+
+| Language | Trust-Based Template | Ranking Template |
+|----------|---------------------|------------------|
+| `en` | English | English |
+| `zh-TW` | Traditional Chinese (Taiwan) | Traditional Chinese (Taiwan) |
+| `zh-HK` | Traditional Chinese (Hong Kong) | Traditional Chinese (Hong Kong) |
+| `ja` | Japanese | Japanese |
+| `ko` | Korean | Korean |
+| `ar` | Arabic | Arabic |
+| `fr` | French | French |
+| `de` | German | German |
+| `es` | Spanish | Spanish |
+
+### Template Type Selection
+
+```bash
+# Use Trust-Based style (default)
+geoagent transform article.md --lang en
+
+# Use Ranking style
+geoagent transform article.md --lang en --template-type ranking
+
+# Use a specific template (overrides auto-select)
+geoagent transform article.md --lang en \
+  --geo-prompt "GEO Ranking-Style Article Generation (English)"
+```
 
 ## Supported Languages
 
@@ -76,6 +139,43 @@ geoagent transform cdcc -r --lang zh-TW
 - `fr` - French
 - `de` - German
 - `es` - Spanish
+
+## Database
+
+GeoAgent uses SQLite for persistent storage of prompt templates, articles, tasks, and more.
+
+```bash
+# Initialize database (creates tables and seeds default prompts)
+geoagent init-db
+
+# Database location: ~/.geoagent/geoagent.db (or custom via config)
+```
+
+### Database CLI Commands
+
+```bash
+# Article management
+geoagent article new "My Article Title" --content "Article body..." --category-id 1 --author-id 1
+geoagent article list
+geoagent article list --status draft
+geoagent article publish 123
+geoagent article hot 123 --enable
+geoagent article featured 123 --disable
+
+# Task management
+geoagent task list
+geoagent task run 1
+geoagent task stop 1
+
+# URL import pipeline
+geoagent url-import submit https://example.com/article
+geoagent url-import status 1
+geoagent url-import logs 1
+
+# Admin settings
+geoagent admin settings --key site_name --value "My Site"
+geoagent admin settings --key site_name
+```
 
 ## Output Files
 
@@ -92,8 +192,8 @@ Each output file includes frontmatter with:
 - `lang`: Target language
 - `translated_from`: Source language
 - `geo_optimized`: true
+- `geo_template`: Name of GEO template used
 - `geo_rules_applied`: List of applied GEO rules
-- `tags`: Extracted themes/topics
 
 ## Configuration
 
@@ -124,10 +224,13 @@ geo:
 
 pipeline:
   max_tokens_translate: 8192   # Max tokens for translation
-  max_tokens_geo: 8192         # Max tokens for GEO optimization
+  max_tokens_geo: 8192           # Max tokens for GEO optimization
   max_tokens_understand: 2048   # Max tokens for document understanding
   max_retries: 3                # API retry attempts
   retry_base_delay: 1.0         # Base delay for exponential backoff (seconds)
+
+database:
+  path: ~/.geoagent/geoagent.db  # SQLite database path (optional)
 ```
 
 ## GEO Rules
@@ -153,6 +256,108 @@ pytest -v
 pip install -e ".[dev]"
 ```
 
+## AI Title Generation
+
+Generate titles in 5 styles using AI, with mock template fallback.
+
+```bash
+# Generate titles with specific keywords and style
+geoagent title generate -k "AI" " laptops" --style seo --count 3
+
+# Available styles:
+#   professional  - 专业严谨的
+#   attractive    - 吸引眼球的
+#   seo           - SEO优化的
+#   creative      - 创意新颖的
+#   question      - 疑问式的
+```
+
+### Mock Fallback
+
+When AI fails, titles are generated from built-in templates:
+
+| Style | Example Templates |
+|-------|-------------------|
+| `professional` | {keyword}的深度分析与研究, 关于{kw}的专业见解 |
+| `attractive` | 你绝对不知道的{kw}秘密, 揭秘{kw}背后的故事 |
+| `seo` | {kw}完整指南：从入门到精通, {kw}常见问题解答大全 |
+| `creative` | 重新定义{kw}的可能性, 如果{kw}会说话... |
+| `question` | {kw}真的有用吗？, 为什么{kw}如此重要？ |
+
+## Article Generation (GEOFlow Pipeline)
+
+Generate articles using the full GEOFlow pipeline with knowledge RAG, image insertion, and auto-publishing.
+
+```bash
+# Generate article for a task
+geoagent article generate 1
+
+# With knowledge base RAG
+geoagent article generate 1 --knowledge-base-id 1 --style professional
+
+# With custom keyword
+geoagent article generate 1 --keyword "AI laptops"
+```
+
+### Pipeline Steps
+
+```
+1. publishDueDraftArticle()     — Auto-publish approved drafts when due
+2. getGenerationBlockReason()   — Check draft_limit / article_limit
+3. pickTitle()                  — Title with lowest used_count
+4. resolveKnowledgeContext()    — RAG: hybrid search (75% vector + 25% lexical)
+5. buildContentPrompt()         — Render {{title}} {{keyword}} {{Knowledge}}
+6. generateContent()            — AI model generation
+7. insertTaskImagesIntoContent() — Distribute images by paragraph interval
+8. buildExcerpt()               — First 200 chars as excerpt
+9. Create Article               — status='draft', review_status='pending'
+10. Update counters             — Title.used_count++, Task.created_count++
+```
+
+## Knowledge RAG
+
+Retrieves relevant knowledge chunks for injection into prompts as `{{Knowledge}}`.
+
+```bash
+# Knowledge base chunking uses 900-char segments split on \n\n
+# Retrieval uses hybrid scoring: 0.75 * cosine_similarity + 0.25 * term_overlap
+# Returns up to 4 chunks with max 2400 characters total
+```
+
+### Embedding Models
+
+- **Real embeddings**: Call embedding API (configurable via `site_settings.default_embedding_model_id`)
+- **Fallback vectors**: 256-dim normalized term-frequency vectors stored as JSON
+
+## Image Insertion
+
+Images from task's image library are inserted at paragraph intervals, not stacked at the end.
+
+```python
+# Algorithm: interval = floor(paragraphCount / (imageCount + 1))
+# Insert after paragraph where nextPosition % interval == 0
+# Format: ![alt](url) Markdown
+```
+
+## Background Worker
+
+Run the GEOFlow worker loop for automated article generation and publishing.
+
+```bash
+# Poll for due tasks and run them
+geoagent worker --poll-interval 60
+
+# Run a specific task only
+geoagent worker --task-id 1
+
+# Worker loop behavior:
+#   1. recoverStaleJobs() on startup
+#   2. Poll active tasks every N seconds
+#   3. Advance next_run_at by 60s after enqueueing
+#   4. Run task until article_limit reached or is_loop=0
+#   5. Auto-publish due drafts before generating new content
+```
+
 ## Project Structure
 
 ```
@@ -165,7 +370,32 @@ geoagent/
 │   └── document.py    # Document models
 ├── translator/
 │   └── translator.py  # Multi-language translation
-└── geo/
-    ├── rules.py       # GEO rules definitions
-    └── optimizer.py   # GEO optimization logic
+├── geo/
+│   ├── rules.py       # GEO rules definitions
+│   └── optimizer.py   # GEO optimization logic
+├── db/
+│   ├── connection.py  # SQLite connection manager
+│   └── schema.py      # Database schema (22 tables)
+├── prompts/
+│   └── registry.py    # Prompt template registry
+├── knowledge/
+│   ├── base.py        # KnowledgeBase + TextChunker (900 char)
+│   ├── embedder.py   # Fallback vectors + embedding API
+│   └── retriever.py  # Hybrid search (75% vector + 25% lexical)
+├── articles/
+│   ├── models.py      # Article/Author/Category dataclasses
+│   └── generator.py  # Full GEOFlow pipeline
+├── keywords/
+│   └── extractor.py  # Keyword extraction
+├── url_import/
+│   └── job.py         # URL import pipeline
+├── tasks/
+│   └── scheduler.py   # TaskScheduler + TaskRunner + Worker loop
+├── titles/
+│   └── generator.py   # AI title generation (5 styles)
+├── images/
+│   ├── library.py     # ImageLibrary + Image dataclasses
+│   └── inserter.py   # Paragraph interval image insertion
+└── admin/
+    └── settings.py   # SiteSettings key-value store
 ```

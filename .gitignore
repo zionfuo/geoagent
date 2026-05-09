@@ -5,10 +5,16 @@ __pycache__/
 *.so
 .Python
 build/
+database/
+GEOFlow/
+examples/
 develop-eggs/
 dist/
+tests/
+shared/
 downloads/
 eggs/
+tw/
 .eggs/
 lib/
 lib64/
@@ -30,6 +36,8 @@ env/
 .pytest_cache/
 .coverage
 htmlcov/
+__pycache__/
+geoagent/__pycache__
 
 # IDE
 .idea/

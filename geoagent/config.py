@@ -26,6 +26,7 @@ class Config:
     max_tokens_understand: int = 2048
     max_retries: int = 3
     retry_base_delay: float = 1.0
+    db_path: Optional[str] = None
 
     @classmethod
     def from_file(cls, path: str) -> "Config":
@@ -41,6 +42,7 @@ class Config:
             )
 
         pipeline_config = data.get('pipeline', {})
+        db_config = data.get('database', {})
         return cls(
             default_model=data.get('default_model', 'minimax/MiniMax-M2.7'),
             models=models,
@@ -50,7 +52,8 @@ class Config:
             max_tokens_geo=pipeline_config.get('max_tokens_geo', 8192),
             max_tokens_understand=pipeline_config.get('max_tokens_understand', 2048),
             max_retries=pipeline_config.get('max_retries', 3),
-            retry_base_delay=pipeline_config.get('retry_base_delay', 1.0)
+            retry_base_delay=pipeline_config.get('retry_base_delay', 1.0),
+            db_path=db_config.get('path')
         )
 
     def get_model_client(self, provider: str, api_key: str) -> ModelClient:
