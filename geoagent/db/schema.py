@@ -3,6 +3,8 @@
 Mirrors the GEOFlow Laravel migrations translated to SQLite syntax.
 """
 
+import sqlite3
+
 SCHEMA_TABLES = [
     # ai_models - Third-party LLM configuration
     """CREATE TABLE IF NOT EXISTS ai_models (

@@ -358,6 +358,73 @@ geoagent worker --task-id 1
 #   5. Auto-publish due drafts before generating new content
 ```
 
+## Batch Translation with Directory Structure Preservation
+
+Translate a collection of articles while preserving their original category structure, including associated images.
+
+```bash
+# Translate all articles in a directory to Simplified Chinese
+export ANTHROPIC_API_KEY="your-api-key"
+geoagent transform /path/to/articles --lang zh-CN --output-dir /path/to/output -r -c 4
+```
+
+### Example: Batch Articles Translation
+
+```bash
+# Translate articles and preserve directory structure
+ANTHROPIC_API_KEY="sk-xxx" geoagent transform /path/to/articles \
+  --lang zh-CN \
+  --output-dir /path/to/output \
+  -r -c 4
+
+# After translation, classify images by matching to article categories
+python3 << 'EOF'
+import os
+import shutil
+from pathlib import Path
+
+images_dir = Path("images")
+output_dir = Path("output")
+articles_dir = Path("articles")
+
+# Build mapping from filename (without extension) to relative path in articles
+filename_to_relpath = {}
+for md_file in articles_dir.rglob("*.md"):
+    stem = md_file.stem
+    rel_path = md_file.relative_to(articles_dir)
+    filename_to_relpath[stem] = rel_path
+
+# Process each image folder
+image_folders = [d for d in images_dir.iterdir() if d.is_dir() and d.name != '.DS_Store']
+for img_folder in image_folders:
+    stem = img_folder.name
+    if stem in filename_to_relpath:
+        rel_path = filename_to_relpath[stem]
+        dest_folder = output_dir / rel_path.parent / stem
+        dest_folder.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(img_folder, dest_folder)
+EOF
+```
+
+### Expected Output Structure
+
+```
+output/
+├── AI/
+│   └── 2026/
+│       └── 05/
+│           ├── article-title.zh-CN.geo.md      # Translated article
+│           └── article-title/                  # Image folder
+│               ├── image1.png
+│               └── image2.png
+├── Activism/
+│   └── 2026/
+│       └── 05/
+│           ├── article-title.zh-CN.geo.md
+│           └── article-title/
+...
+```
+
 ## Project Structure
 
 ```

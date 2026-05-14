@@ -19,11 +19,15 @@ DEFAULT_CONFIG_PATH = os.path.expanduser("~/.geoagent/config.yaml")
 
 
 def ensure_database(db_path: str = None):
-    """Ensure database is initialized with schema."""
+    """Ensure database is initialized with schema and default templates."""
     config = load_config()
     db = Database.get_instance(db_path or config.db_path)
     conn = db.get_connection()
     initialize_schema(conn)
+    # Initialize default templates after schema
+    from geoagent.prompts.registry import PromptRegistry
+    registry = PromptRegistry(db)
+    registry.initialize_default_templates()
     return db
 
 
@@ -450,10 +454,10 @@ def worker_cmd(task_id, poll_interval, model, db_path):
 
 def process_single_file(args, verbose=False):
     """Process a single file. Returns (success, filename, output_count, error)."""
-    md_file, pipeline, output_dir, target_languages = args
+    md_file, pipeline, output_dir, target_languages, resume, source_root = args
 
     try:
-        output_files = pipeline.transform(str(md_file), output_dir, target_languages, resume)
+        output_files = pipeline.transform(str(md_file), output_dir, target_languages, resume, source_root=source_root)
         return (True, md_file.name, len(output_files), None)
     except Exception as e:
         return (False, md_file.name, 0, str(e))
@@ -474,6 +478,7 @@ def process_single_file(args, verbose=False):
 def transform(input_path, model, output_dir, geo_rules, lang, verbose, recursive, concurrency, resume, geo_prompt, template_type):
     """Transform a markdown article or directory of articles into GEO-optimized versions."""
     config = load_config()
+    ensure_database()
 
     provider, model_name = parse_model_option(model or config.default_model)
 
@@ -526,7 +531,8 @@ def transform(input_path, model, output_dir, geo_rules, lang, verbose, recursive
         failed_count = 0
 
         # Prepare work items
-        work_items = [(f, pipeline, output_dir, target_languages) for f in md_files]
+        source_root = str(input_path_obj.resolve())
+        work_items = [(f, pipeline, output_dir, target_languages, resume, source_root) for f in md_files]
 
         with ThreadPoolExecutor(max_workers=concurrency) as executor:
             futures = {executor.submit(process_single_file, item, verbose): item[0] for item in work_items}

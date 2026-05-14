@@ -18,6 +18,10 @@ LANG_TO_TEMPLATE = {
         "trust": "GEO Marketing · Trust-Based Article Generation (English)",
         "ranking": "GEO Ranking-Style Article Generation (English)",
     },
+    "zh-CN": {
+        "trust": "GEO营销学·信任型正文生成",
+        "ranking": "GEO榜单型正文生成",
+    },
     "zh-TW": {
         "trust": "GEO Marketing · Trust-Based Article Generation (Traditional Chinese (Taiwan))",
         "ranking": "GEO Ranking-Style Article Generation (Traditional Chinese (Taiwan))",
@@ -136,7 +140,8 @@ class GEOOptimizer:
                     template,
                     title=title,
                     keyword=keyword,
-                    Knowledge=knowledge
+                    Knowledge=knowledge,
+                    content=content
                 )
                 return "", rendered
 
@@ -156,7 +161,14 @@ class GEOOptimizer:
         mapping = LANG_TO_TEMPLATE.get(lang)
         if not mapping:
             return DEFAULT_TRUST_TEMPLATE if self._template_type == "trust" else DEFAULT_RANKING_TEMPLATE
-        return mapping.get(self._template_type)
+        template = mapping.get(self._template_type)
+        # If template doesn't exist in DB, fall back to Chinese template
+        if template:
+            db = Database.get_instance(self._db_path)
+            registry = PromptRegistry(db)
+            if not registry.get_template(template):
+                return DEFAULT_TRUST_TEMPLATE if self._template_type == "trust" else DEFAULT_RANKING_TEMPLATE
+        return template
 
     def optimize(
         self,
@@ -191,14 +203,13 @@ class GEOOptimizer:
         all_template_names = set()
         for m in LANG_TO_TEMPLATE.values():
             all_template_names.update(m.values())
+        # Templates in all_template_names (en, ja, ko, zh-TW, etc.) return direct content
+        # Chinese templates (GEO营销学·信任型正文生成, GEO榜单型正文生成) also render directly
+        # Only the built-in GEO_OPTIMIZATION_PROMPT returns JSON wrapped content
         is_new_template = template_name and (
-            template_name in [
-                "GEO Marketing · Trust-Based Article Generation (English)",
-                "GEO Ranking-Style Article Generation (English)",
-                "GEO营销学·信任型正文生成",
-                "GEO榜单型正文生成",
-            ]
-            or template_name in all_template_names
+            template_name in all_template_names or
+            template_name == DEFAULT_TRUST_TEMPLATE or
+            template_name == DEFAULT_RANKING_TEMPLATE
         )
 
         if is_new_template:

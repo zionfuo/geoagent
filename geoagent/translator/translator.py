@@ -6,6 +6,7 @@ from geoagent.models.document import MarkdownDocument
 
 LANGUAGE_DISPLAY = {
     "en": "English",
+    "zh-CN": "Simplified Chinese",
     "zh-TW": "Traditional Chinese (Taiwan)",
     "zh-HK": "Traditional Chinese (Hong Kong)",
     "ja": "Japanese",

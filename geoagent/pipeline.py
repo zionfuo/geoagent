@@ -66,11 +66,23 @@ class Pipeline:
         input_path: str,
         output_dir: str,
         target_languages: list[str],
-        resume: bool = False
+        resume: bool = False,
+        source_root: str = None
     ) -> list[str]:
         """Run full transformation pipeline."""
-        os.makedirs(output_dir, exist_ok=True)
         input_file = Path(input_path)
+        source_root_path = Path(source_root) if source_root else input_file.parent
+
+        # Calculate relative path to preserve directory structure
+        try:
+            rel_path = input_file.relative_to(source_root_path)
+            rel_dir = rel_path.parent
+            output_subdir = Path(output_dir) / rel_dir if rel_dir != Path('.') else Path(output_dir)
+        except ValueError:
+            output_subdir = Path(output_dir)
+
+        output_subdir.mkdir(parents=True, exist_ok=True)
+
         base_name = input_file.stem
 
         doc = self.read_input(input_path)
@@ -78,7 +90,7 @@ class Pipeline:
         output_files = []
 
         for lang in target_languages:
-            translated_geo_path = os.path.join(output_dir, f"{base_name}.{lang}.geo.md")
+            translated_geo_path = str(output_subdir / f"{base_name}.{lang}.geo.md")
 
             # Resume check: skip if output file already exists
             if resume and os.path.exists(translated_geo_path):
