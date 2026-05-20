@@ -1,0 +1,12 @@
+{
+  "skills": {
+    "entries": {
+      "geoagent": {
+        "enabled": true,
+        "env": {
+          "ANTHROPIC_API_KEY": "YOUR_API_KEY_HERE"
+        }
+      }
+    }
+  }
+}

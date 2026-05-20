@@ -1,0 +1,8 @@
+name: geoagent
+version: 1.0.0
+description: Transform Chinese markdown articles into GEO-optimized multi-language versions
+provides_tools:
+  - geoagent_transform
+  - geoagent_batch
+provides_hooks:
+  - post_tool_call
